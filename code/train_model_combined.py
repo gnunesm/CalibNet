@@ -189,21 +189,21 @@ with tf.Session(config = config_tf) as sess:
                 for l in range(dmaps_pred[0].shape[0]):
                     for c in range(dmaps_pred[0].shape[1]):
                         if dmaps_pred[0][l][c] != 0:
-                            predicted[l][c][0] = 0
+                            predicted[l][c][0] = 255-2*dmaps_pred[0][l][c]
                             predicted[l][c][1] = 0
-                            predicted[l][c][2] = 255-2*dmaps_pred[0][l][c]
+                            predicted[l][c][2] = 0
                         if dmaps_exp[0][l][c] != 0:
-                                expected[l][c][0] = 0
+                                expected[l][c][0] = 255-2*dmaps_exp[0][l][c]
                                 expected[l][c][1] = 0
-                                expected[l][c][2] = 255-2*dmaps_exp[0][l][c]
+                                expected[l][c][2] = 0
                         if source_b[0][l][c][0] != -1.0:
-                            input_situation[l][c][0] = 0
+                            input_situation[l][c][0] = 255
                             input_situation[l][c][1] = 0
-                            input_situation[l][c][2] = 255
-                cv2.imwrite('{}.png'.format(n), 127*(source_img_b[0]+1))
-                cv2.imwrite('{}.png'.format(n+1), input_situation)
-                cv2.imwrite('{}.png'.format(n+2), expected)
-                cv2.imwrite('{}.png'.format(n+3), predicted)
+                            input_situation[l][c][2] = 0
+                cv2.imwrite('{}.png'.format(n), cv2.cvtColor(127*(source_img_b[0]+1), cv2.COLOR_BGR2RGB))
+                cv2.imwrite('{}.png'.format(n+1), cv2.cvtColor(input_situation, cv2.COLOR_BGR2RGB))
+                cv2.imwrite('{}.png'.format(n+2), cv2.cvtColor(expected, cv2.COLOR_BGR2RGB))
+                cv2.imwrite('{}.png'.format(n+3), cv2.cvtColor(predicted, cv2.COLOR_BGR2RGB))
                 n += 4
                 if(total_iterations_validate%25 == 0):
 
