@@ -1,2 +1,2 @@
-/dados/velodyne/cloud0007.png /dados/velodyne/cloud0007.png /dados/bb3/img0007.png /dados/bb3/img0007.png 0.9955 -0.0496 0.0804 0.1187 0.0544 0.9968 -0.0586 0.1256 -0.0772 0.0627 0.9950 0.0292 0.0000 0.0000 0.0000 1.0000
-/dados/velodyne/cloud0009.png /dados/velodyne/cloud0009.png /dados/bb3/img0009.png /dados/bb3/img0009.png 0.9955 -0.0496 0.0804 0.1187 0.0544 0.9968 -0.0586 0.1256 -0.0772 0.0627 0.9950 0.0292 0.0000 0.0000 0.0000 1.0000
+/dados/velodyne/cloud0009.png /dados/velodyne/cloud0009.png /dados/bb3/img0009.png /dados/bb3/img0009.png 1.0000 0.0000 0.0000 0.0000 0.0000 1.0000 0.0000 0.0000 0.0000 0.0000 1.0000 0.0000 0.0000 0.0000 0.0000 1.0000
+/dados/velodyne/cloud0009.png /dados/velodyne/cloud0009.png /dados/bb3/img0009.png /dados/bb3/img0009.png 1.0000 0.0000 0.0000 0.0000 0.0000 1.0000 0.0000 0.0000 0.0000 0.0000 1.0000 0.0000 0.0000 0.0000 0.0000 1.0000

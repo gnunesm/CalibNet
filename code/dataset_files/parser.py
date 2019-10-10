@@ -21,7 +21,7 @@ for fn in folder_names:
     file_names_source = ns(glob.glob(fn + "depth_maps_transformed/*.png"))
     file_names_target = ns(glob.glob(fn + "depth_maps/*.png"))
     img_source = ns(glob.glob(fn + "image_02/data/*.png"))
-    img_target = ns(glob.glob(fn + "image_03/data/*.png"))
+    img_target = ns(glob.glob(fn + "target_imgs/*.png"))
     transforms_list = np.loadtxt(fn + "angle_list.txt", dtype = str)
 
     file_names_source = np.array(file_names_source, dtype=str).reshape(-1,1)

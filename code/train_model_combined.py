@@ -170,6 +170,7 @@ with tf.Session(config = config_tf) as sess:
                 dmaps_exp = outputs[1]
                 loss = outputs[2]
                 source = outputs[3]
+                transfs = outputs[6]
 
                 writer.add_summary(outputs[4], total_iterations_validate)
                 total_iterations_validate+=1
@@ -180,7 +181,7 @@ with tf.Session(config = config_tf) as sess:
                 print(dmaps_exp.shape)
                 print(source_b.shape)
                 print(source_img_b.shape)
-                print(outputs[6])
+                print(transfs)
 
                 input_situation = 127*(np.copy(source_img_b[0])+1)
                 expected = 127*(np.copy(source_img_b[0])+1)
@@ -193,9 +194,9 @@ with tf.Session(config = config_tf) as sess:
                             predicted[l][c][1] = 0
                             predicted[l][c][2] = 0
                         if dmaps_exp[0][l][c] != 0:
-                                expected[l][c][0] = 255-2*dmaps_exp[0][l][c]
-                                expected[l][c][1] = 0
-                                expected[l][c][2] = 0
+                            expected[l][c][0] = 255-2*dmaps_exp[0][l][c]
+                            expected[l][c][1] = 0
+                            expected[l][c][2] = 0
                         if source_b[0][l][c][0] != -1.0:
                             input_situation[l][c][0] = 255
                             input_situation[l][c][1] = 0
