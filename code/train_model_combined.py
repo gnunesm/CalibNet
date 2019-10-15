@@ -5,8 +5,8 @@ import scipy.misc as smc
 import config_res as config
 
 from common.cnn_utils_res import *
-# from common import resnet_rgb_model as model
-# from common import resnet_depth_model as model_depth
+from common import resnet_rgb_model as model
+from common import resnet_depth_model as model_depth
 from common import all_transformer as at3
 from common import global_agg_net
 from common.Lie_functions import exponential_map_single
@@ -14,7 +14,6 @@ from common.Lie_functions import exponential_map_single
 import nw_loader_color as ldr
 import model_utils
 
-import cv2
 
 _BETA_CONST = 1.0
 _ALPHA_CONST = 1.0
@@ -39,7 +38,7 @@ keep_prob = tf.placeholder(tf.float32, name = "keep_prob")
 fx = config.camera_params['fx']
 fy = config.camera_params['fy']
 cx = config.camera_params['cx']
-cy = config.camera_params['cy'] 
+cy = config.camera_params['cy']
 
 fx_scaled = 2*(fx)/np.float32(IMG_WDT)              # focal length x scaled for -1 to 1 range
 fy_scaled = 2*(fy)/np.float32(IMG_HT)               # focal length y scaled for -1 to 1 range
@@ -99,7 +98,7 @@ saver = tf.train.Saver()
 
 # tensorflow gpu configuration. Not to be confused with network configuration file
 
-config_tf = tf.ConfigProto(allow_soft_placement=True)
+config_tf = tf.ConfigProto()
 config_tf.gpu_options.allow_growth=True
 
 with tf.Session(config = config_tf) as sess:
@@ -158,54 +157,24 @@ with tf.Session(config = config_tf) as sess:
         if (epoch%1 == 0):
             print("Saving after epoch %d"%epoch)
             saver.save(sess, checkpoint_path + "/model-%d"%epoch)
-        n = 0
+
         for part in range(total_partitions_validation):
-            source_container, target_container, source_img_container, target_img_container, transforms_container = ldr.load(part, mode = "inference")
+            source_container, target_container, source_img_container, target_img_container, transforms_container = ldr.load(part, mode = "validation")
 
             for source_b, target_b, source_img_b, target_img_b, transforms_b in zip(source_container, target_container, source_img_container, target_img_container, transforms_container):
 
-                outputs= sess.run([depth_maps_predicted, depth_maps_expected, predicted_loss_validation, X2_pooled, merge_val, cloud_loss_validation, predicted_transforms], feed_dict={X1: source_img_b, X2: source_b, depth_maps_target: target_b, expected_transforms: transforms_b ,phase:False, keep_prob:1.0, phase_rgb: False})
+                outputs= sess.run([depth_maps_predicted, depth_maps_expected, predicted_loss_validation, X2_pooled, merge_val, cloud_loss_validation], feed_dict={X1: source_img_b, X2: source_b, depth_maps_target: target_b, expected_transforms: transforms_b ,phase:False, keep_prob:1.0, phase_rgb: False})
 
                 dmaps_pred = outputs[0]
                 dmaps_exp = outputs[1]
                 loss = outputs[2]
                 source = outputs[3]
-                transfs = outputs[6]
 
                 writer.add_summary(outputs[4], total_iterations_validate)
                 total_iterations_validate+=1
 
                 print(loss, total_iterations_validate, outputs[5])
 
-                print(dmaps_pred.shape)
-                print(dmaps_exp.shape)
-                print(source_b.shape)
-                print(source_img_b.shape)
-                print(transfs)
-
-                input_situation = 127*(np.copy(source_img_b[0])+1)
-                expected = 127*(np.copy(source_img_b[0])+1)
-                predicted = 127*(np.copy(source_img_b[0])+1)
-
-                for l in range(dmaps_pred[0].shape[0]):
-                    for c in range(dmaps_pred[0].shape[1]):
-                        if dmaps_pred[0][l][c] != 0:
-                            predicted[l][c][0] = 255-2*dmaps_pred[0][l][c]
-                            predicted[l][c][1] = 0
-                            predicted[l][c][2] = 0
-                        if dmaps_exp[0][l][c] != 0:
-                            expected[l][c][0] = 255-2*dmaps_exp[0][l][c]
-                            expected[l][c][1] = 0
-                            expected[l][c][2] = 0
-                        if source_b[0][l][c][0] != -1.0:
-                            input_situation[l][c][0] = 255
-                            input_situation[l][c][1] = 0
-                            input_situation[l][c][2] = 0
-                cv2.imwrite('{}.png'.format(n), cv2.cvtColor(127*(source_img_b[0]+1), cv2.COLOR_BGR2RGB))
-                cv2.imwrite('{}.png'.format(n+1), cv2.cvtColor(input_situation, cv2.COLOR_BGR2RGB))
-                cv2.imwrite('{}.png'.format(n+2), cv2.cvtColor(expected, cv2.COLOR_BGR2RGB))
-                cv2.imwrite('{}.png'.format(n+3), cv2.cvtColor(predicted, cv2.COLOR_BGR2RGB))
-                n += 4
                 if(total_iterations_validate%25 == 0):
 
                     random_disp = np.random.randint(batch_size)
