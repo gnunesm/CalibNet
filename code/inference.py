@@ -5,8 +5,8 @@ import scipy.misc as smc
 import config_res as config
 
 from common.cnn_utils_res import *
-from common import resnet_rgb_model as model
-from common import resnet_depth_model as model_depth
+# from common import resnet_rgb_model as model
+# from common import resnet_depth_model as model_depth
 from common import all_transformer as at3
 from common import global_agg_net
 from common.Lie_functions import exponential_map_single
@@ -16,7 +16,6 @@ import model_utils
 
 import cv2
 
-
 _BETA_CONST = 1.0
 _ALPHA_CONST = 1.0
 IMG_HT = config.depth_img_params['IMG_HT']
@@ -24,8 +23,7 @@ IMG_WDT = config.depth_img_params['IMG_WDT']
 batch_size = config.net_params['batch_size']
 learning_rate = config.net_params['learning_rate']
 n_epochs = config.net_params['epochs']
-# current_epoch = config.net_params['load_epoch']
-current_epoch = 43
+current_epoch = config.net_params['load_epoch']
 
 tf.reset_default_graph()
 
@@ -41,7 +39,7 @@ keep_prob = tf.placeholder(tf.float32, name = "keep_prob")
 fx = config.camera_params['fx']
 fy = config.camera_params['fy']
 cx = config.camera_params['cx']
-cy = config.camera_params['cy']
+cy = config.camera_params['cy'] 
 
 fx_scaled = 2*(fx)/np.float32(IMG_WDT)              # focal length x scaled for -1 to 1 range
 fy_scaled = 2*(fy)/np.float32(IMG_HT)               # focal length y scaled for -1 to 1 range
@@ -101,7 +99,7 @@ saver = tf.train.Saver()
 
 # tensorflow gpu configuration. Not to be confused with network configuration file
 
-config_tf = tf.ConfigProto(allow_soft_placement=True, device_count={'GPU': 1})
+config_tf = tf.ConfigProto(allow_soft_placement=True)
 config_tf.gpu_options.allow_growth=True
 
 with tf.Session(config = config_tf) as sess:
@@ -112,62 +110,104 @@ with tf.Session(config = config_tf) as sess:
     total_iterations_train = 0
     total_iterations_validate = 0
 
-    writer.add_graph(sess.graph)
+    if(current_epoch == 0):
+        writer.add_graph(sess.graph)
 
     checkpoint_path = config.paths['checkpoint_path']
 
-    print("Restoring Checkpoint")
+    if(current_epoch > 0):
+        print("Restoring Checkpoint")
 
-    saver.restore(sess, checkpoint_path + "/model-%d"%current_epoch)
+        saver.restore(sess, checkpoint_path + "/model-%d"%current_epoch)
+        current_epoch+=1
+        total_iterations_train = current_epoch*config.net_params['total_frames_train']/batch_size
+        total_iterations_validate = current_epoch*config.net_params['total_frames_validation']/batch_size
 
-    total_partitions_train = config.net_params['total_frames_train']/config.net_params['partition_limit']
-    total_partitions_validation = config.net_params['total_frames_validation']/config.net_params['partition_limit']
-    ldr.shuffle()
+    for epoch in range(current_epoch, n_epochs):
+        total_partitions_train = config.net_params['total_frames_train']/config.net_params['partition_limit']
+        total_partitions_validation = config.net_params['total_frames_validation']/config.net_params['partition_limit']
+        ldr.shuffle()
 
-    source_container, target_container, source_img_container, target_img_container, transforms_container = ldr.load(0, mode = "inference")
+        for part in range(total_partitions_train):
+            source_container, target_container, source_img_container, target_img_container, transforms_container = ldr.load(part, mode = "train")
 
-    outputs = sess.run([depth_maps_predicted, depth_maps_expected, predicted_loss_train, predicted_transforms], feed_dict={X1: source_img_container[0], X2: source_container[0], depth_maps_target: target_container[0], expected_transforms: transforms_container[0] ,phase:True, keep_prob:0.5, phase_rgb: False})
+            for source_b, target_b, source_img_b, target_img_b, transforms_b in zip(source_container, target_container, source_img_container, target_img_container, transforms_container):
 
-    dmaps_pred = outputs[0]
-    dmaps_exp = outputs[1]
-    loss = outputs[2]
+                outputs= sess.run([depth_maps_predicted, depth_maps_expected, predicted_loss_train, X2_pooled, train_step, merge_train, predicted_transforms, cloud_loss, photometric_loss, loss1], feed_dict={X1: source_img_b, X2: source_b, depth_maps_target: target_b, expected_transforms: transforms_b ,phase:True, keep_prob:0.5, phase_rgb: False})
 
-    print(dmaps_pred.shape)
-    print(dmaps_exp.shape)
-    print(outputs[3])
-    print(source_img_container.shape)
+                dmaps_pred = outputs[0]
+                dmaps_exp = outputs[1]
+                loss = outputs[2]
+                source = outputs[3]
 
-# cv2.imwrite('result.png', dmaps_pred[0, :, :])
-input_d_map = cv2.imread(ldr.get_paths()[0])
-source_img2 = cv2.imread(ldr.get_paths()[2])
-exp_source = cv2.imread(ldr.get_paths()[2])
-input_situation = cv2.imread(ldr.get_paths()[2])
-cv2.imwrite('source_img.png', source_img2)
-print(input_d_map.shape)
-for l in range(dmaps_pred[0, :, :].shape[0]):
-    for c in range(dmaps_pred[0, :, :].shape[1]):
-        if dmaps_pred[0][l][c] != 0:
-            source_img2[l][c][0] = 0
-            source_img2[l][c][1] = 0
-            source_img2[l][c][2] = 255-2*dmaps_pred[0][l][c]
-for l in range(dmaps_exp[0, :, :].shape[0]):
-    for c in range(dmaps_exp[0, :, :].shape[1]):
-        if dmaps_exp[0][l][c] != 0:
-            exp_source[l][c][0] = 0
-            exp_source[l][c][1] = 0
-            exp_source[l][c][2] = 255-2*dmaps_exp[0][l][c]
-for l in range(input_d_map.shape[0]):
-    for c in range(input_d_map.shape[1]):
-        if input_d_map[l][c][0] != 0:
-            input_situation[l][c][0] = 0
-            input_situation[l][c][1] = 0
-            input_situation[l][c][2] = 255-2*input_d_map[l][c][0]
-# cv2.imwrite('superposed.png', source_img)
-cv2.imwrite('superposed2.png', source_img2)
-cv2.imwrite('input.png', input_situation)
-# cv2.imwrite('src_img.png', source_img_container[0][0])
-# cv2.imwrite('tgt_img.png', target_img_container[0][0])
-# for l in source_img_container[0][0]:
-#     for c in l:
-#         print(c)
-cv2.imwrite('expected.png', exp_source)
+                if(total_iterations_train%10 == 0):
+                    writer.add_summary(outputs[5], total_iterations_train/10)
+
+                print(outputs[8], _ALPHA_CONST*outputs[8], outputs[7], _BETA_CONST*outputs[7], outputs[9],total_iterations_train)
+
+                random_disp = np.random.randint(batch_size)
+                print(outputs[6][random_disp])
+                print(transforms_b[random_disp])
+
+                if(total_iterations_train%125 == 0):
+
+                    smc.imsave(config.paths['training_imgs_path'] + "/training_save_%d.png"%total_iterations_train, np.vstack((source[random_disp,:,:,0]*40.0 + 40.0, dmaps_pred[random_disp], dmaps_exp[random_disp])))
+
+                total_iterations_train+=1
+
+        if (epoch%1 == 0):
+            print("Saving after epoch %d"%epoch)
+            saver.save(sess, checkpoint_path + "/model-%d"%epoch)
+        n = 0
+        for part in range(total_partitions_validation):
+            source_container, target_container, source_img_container, target_img_container, transforms_container = ldr.load(part, mode = "inference")
+
+            for source_b, target_b, source_img_b, target_img_b, transforms_b in zip(source_container, target_container, source_img_container, target_img_container, transforms_container):
+
+                outputs= sess.run([depth_maps_predicted, depth_maps_expected, predicted_loss_validation, X2_pooled, merge_val, cloud_loss_validation, predicted_transforms], feed_dict={X1: source_img_b, X2: source_b, depth_maps_target: target_b, expected_transforms: transforms_b ,phase:False, keep_prob:1.0, phase_rgb: False})
+
+                dmaps_pred = outputs[0]
+                dmaps_exp = outputs[1]
+                loss = outputs[2]
+                source = outputs[3]
+                transfs = outputs[6]
+
+                writer.add_summary(outputs[4], total_iterations_validate)
+                total_iterations_validate+=1
+
+                print(loss, total_iterations_validate, outputs[5])
+
+                print(dmaps_pred.shape)
+                print(dmaps_exp.shape)
+                print(source_b.shape)
+                print(source_img_b.shape)
+                print(transfs)
+
+                input_situation = 127*(np.copy(source_img_b[0])+1)
+                expected = 127*(np.copy(source_img_b[0])+1)
+                predicted = 127*(np.copy(source_img_b[0])+1)
+
+                for l in range(dmaps_pred[0].shape[0]):
+                    for c in range(dmaps_pred[0].shape[1]):
+                        if dmaps_pred[0][l][c] != 0:
+                            predicted[l][c][0] = 255-2*dmaps_pred[0][l][c]
+                            predicted[l][c][1] = 0
+                            predicted[l][c][2] = 0
+                        if dmaps_exp[0][l][c] != 0:
+                            expected[l][c][0] = 255-2*dmaps_exp[0][l][c]
+                            expected[l][c][1] = 0
+                            expected[l][c][2] = 0
+                        if source_b[0][l][c][0] != -1.0:
+                            input_situation[l][c][0] = 255
+                            input_situation[l][c][1] = 0
+                            input_situation[l][c][2] = 0
+                cv2.imwrite('{}.png'.format(n), cv2.cvtColor(127*(source_img_b[0]+1), cv2.COLOR_BGR2RGB))
+                cv2.imwrite('{}.png'.format(n+1), cv2.cvtColor(input_situation, cv2.COLOR_BGR2RGB))
+                cv2.imwrite('{}.png'.format(n+2), cv2.cvtColor(expected, cv2.COLOR_BGR2RGB))
+                cv2.imwrite('{}.png'.format(n+3), cv2.cvtColor(predicted, cv2.COLOR_BGR2RGB))
+                n += 4
+                if(total_iterations_validate%25 == 0):
+
+                    random_disp = np.random.randint(batch_size)
+
+                    smc.imsave(config.paths['validation_imgs_path'] + "/validation_save_%d.png"%total_iterations_validate, np.vstack((source[random_disp,:,:,0]*40.0 + 40.0, dmaps_pred[random_disp], dmaps_exp[random_disp])))
